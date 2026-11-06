@@ -20,10 +20,16 @@ physical wheel
 
 ## Status
 
-Early implementation. The repository currently contains the architecture,
-protocol mapping, and the first DirectInput backend. It is Windows-only and
-requires administrator elevation because HIDMaestro creates virtual devices and
-installs its UMDF2 driver.
+Early implementation, confirmed working end-to-end with a **CAMMUS C5**. The
+repository currently contains the architecture, protocol mapping, and the first
+DirectInput backend. It is Windows-only and requires administrator elevation
+because HIDMaestro creates virtual devices and installs its UMDF2 driver.
+
+## Validated hardware
+
+| Device | Backend | Status |
+| --- | --- | --- |
+| CAMMUS C5 | DirectInput constant force | Confirmed working |
 
 ## Consumers
 

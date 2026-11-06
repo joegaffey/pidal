@@ -82,10 +82,10 @@ Acceptance on Windows:
 | --- | --- | --- |
 | PID parser unit tests | Linux/Windows | Automated |
 | Core build | Linux/Windows | Automated |
-| DirectInput enumeration | Windows + CAMMUS C5 | Verified |
-| Constant force | Windows + CAMMUS C5 | Verified |
-| WebHID visibility | Windows + Chrome/Edge + CAMMUS C5 | Verified |
-| End-to-end FFB | Windows + CAMMUS C5 + WebHID client | Verified |
+| DirectInput enumeration | Windows + wheel | Manual |
+| Constant force | Windows + wheel | Manual |
+| WebHID visibility | Windows + Chrome/Edge | Manual |
+| End-to-end FFB | Windows + wheel + WebHID client | Manual |
 | PadForge coexistence | Windows + PadForge | Manual |
 | Driver install/uninstall | Windows | Manual |
 

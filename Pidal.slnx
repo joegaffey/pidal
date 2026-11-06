@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Pidal.App/Pidal.App.csproj" />
+    <Project Path="src/Pidal.Core/Pidal.Core.csproj" />
+    <Project Path="src/Pidal.DirectInput/Pidal.DirectInput.csproj" />
+    <Project Path="src/Pidal.Virtual/Pidal.Virtual.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Pidal.Core.Tests/Pidal.Core.Tests.csproj" />
+  </Folder>
+</Solution>

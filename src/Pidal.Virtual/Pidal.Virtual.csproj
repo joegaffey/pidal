@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>Pidal.Virtual</RootNamespace>
+    <AssemblyName>Pidal.Virtual</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pidal.Core\Pidal.Core.csproj" />
+    <ProjectReference Include="$(HIDMaestroCoreProject)"
+                      Condition="'$(HIDMaestroCoreDll)' == '' and Exists('$(HIDMaestroCoreProject)')" />
+    <Reference Include="HIDMaestro.Core" Condition="'$(HIDMaestroCoreDll)' != ''">
+      <HintPath>$(HIDMaestroCoreDll)</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="RequireHidMaestro" BeforeTargets="PrepareForBuild"
+          Condition="'$(HIDMaestroCoreDll)' == '' and !Exists('$(HIDMaestroCoreProject)')">
+    <Error Text="HIDMaestro.Core was not found. Clone HIDMaestro next to pidal, set -p:HIDMaestroRoot=C:\path\to\HIDMaestro, or set -p:HIDMaestroCoreDll=C:\path\to\HIDMaestro.Core.dll." />
+  </Target>
+</Project>

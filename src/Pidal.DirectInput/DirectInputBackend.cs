@@ -147,6 +147,7 @@ public sealed class DirectInputBackend : IFfbBackend
 
             Check(_device.SetCooperativeLevel(_window, cooperative), "SetCooperativeLevel");
             Check(_device.SetDataFormat<RawJoystickState>(), "SetDataFormat");
+            ConfigureForceFeedback(_device);
             Check(_device.Acquire(), "Acquire");
 
             _steeringAxisOffset = _options.AxisOffset ?? DiscoverSteeringAxisOffset(_device);
@@ -378,6 +379,29 @@ public sealed class DirectInputBackend : IFfbBackend
     public void Dispose()
     {
         Close();
+    }
+
+    private static void ConfigureForceFeedback(IDirectInputDevice8 device)
+    {
+        // Keep the wheel's centering spring from masking or fighting the effect.
+        try
+        {
+            device.Properties.AutoCenter = false;
+        }
+        catch
+        {
+            // Not every driver exposes autocenter.
+        }
+
+        // Raise the device-wide FFB gain; effect gain is set separately.
+        try
+        {
+            device.Properties.ForceFeedbackGain = 10000;
+        }
+        catch
+        {
+            // Not every driver exposes a global gain.
+        }
     }
 
     private void CreateEffect(IDirectInputDevice8 device)

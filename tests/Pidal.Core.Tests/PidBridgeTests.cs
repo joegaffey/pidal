@@ -111,6 +111,44 @@ public class PidBridgeTests
     }
 
     [Fact]
+    public void ForcedStandardModeIgnoresReversedSignature()
+    {
+        var backend = new FakeBackend();
+        var wheel = new FakeVirtualWheel();
+        using var bridge = CreateBridge(backend, wheel, watchdogMs: 0, PidUsageOrder.Standard);
+
+        bridge.Start();
+
+        wheel.Emit(DeviceControl(PidDeviceControl.StopAllEffects));
+        wheel.Emit(DeviceControl(PidDeviceControl.Reset));
+        wheel.Emit(DeviceControl(PidDeviceControl.Continue));
+
+        wheel.Emit(SetEffect(1));
+        wheel.Emit(SetConstantForce(1, 5000));
+        wheel.Emit(EffectOperation(1, PidEffectOperation.Stop));
+
+        WaitUntil(() => backend.StopCount > 0);
+        Assert.Empty(backend.Starts);
+    }
+
+    [Fact]
+    public void ForcedReversedModeSwapsWithoutSignature()
+    {
+        var backend = new FakeBackend();
+        var wheel = new FakeVirtualWheel();
+        using var bridge = CreateBridge(backend, wheel, watchdogMs: 0, PidUsageOrder.Reversed);
+
+        bridge.Start();
+
+        wheel.Emit(SetEffect(1));
+        wheel.Emit(SetConstantForce(1, 5000));
+        wheel.Emit(EffectOperation(1, PidEffectOperation.Stop));
+
+        WaitUntil(() => backend.Starts.Count > 0);
+        Assert.Equal(new[] { 5000 }, backend.Starts.ToArray());
+    }
+
+    [Fact]
     public void KeepsStartStopWhenClientUsesStandardUsageOrder()
     {
         var backend = new FakeBackend();
@@ -187,7 +225,11 @@ public class PidBridgeTests
         Assert.True(condition(), "Timed out waiting for condition.");
     }
 
-    private static PidBridge CreateBridge(FakeBackend backend, FakeVirtualWheel wheel, int watchdogMs)
+    private static PidBridge CreateBridge(
+        FakeBackend backend,
+        FakeVirtualWheel wheel,
+        int watchdogMs,
+        PidUsageOrder usageOrder = PidUsageOrder.Auto)
     {
         return new PidBridge(
             backend,
@@ -197,6 +239,7 @@ public class PidBridgeTests
                 InputPollHz = 1000,
                 WatchdogMs = watchdogMs,
                 WatchdogCheckMs = 20,
+                PidUsageOrder = usageOrder,
             },
             new FakeLog());
     }

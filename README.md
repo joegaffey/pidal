@@ -20,10 +20,11 @@ physical wheel
 
 ## Status
 
-Early implementation. The repository currently contains the architecture,
-protocol mapping, and the first DirectInput backend. It is Windows-only and
-requires administrator elevation because HIDMaestro creates virtual devices and
-installs its UMDF2 driver. Hardware validation is still in progress.
+Early implementation with a working CLI and WinForms GUI. The repository contains
+the architecture, protocol mapping, the DirectInput backend, the HIDMaestro
+virtual PID wheel, and the GUI shell. It is Windows-only; the bridge requires
+administrator elevation because HIDMaestro creates virtual devices and installs
+its UMDF2 driver. Hardware validation is still in progress.
 
 ## Consumers
 
@@ -52,6 +53,10 @@ git clone https://github.com/hifihedgehog/HIDMaestro.git ..\HIDMaestro
 
 dotnet build src\Pidal.App\Pidal.App.csproj -c Release
 dotnet publish src\Pidal.App\Pidal.App.csproj -c Release -r win-x64 -o dist\win-x64
+
+# GUI
+dotnet build src\Pidal.Gui\Pidal.Gui.csproj -c Release
+dotnet publish src\Pidal.Gui\Pidal.Gui.csproj -c Release -r win-x64 -o dist\win-x64
 ```
 
 If HIDMaestro lives elsewhere:
@@ -67,12 +72,26 @@ source checkout:
 dotnet build src\Pidal.App\Pidal.App.csproj -p:HIDMaestroCoreDll=C:\src\HIDMaestro.Core.dll
 ```
 
-The published single-file executable is `dist\win-x64\Pidal.App.exe`.
-`src\Pidal.App\bin` is only the intermediate build output.
+The published single-file executables are `dist\win-x64\Pidal.App.exe` (CLI)
+and `dist\win-x64\Pidal.Gui.exe` (GUI). `src\Pidal.App\bin` and
+`src\Pidal.Gui\bin` are only intermediate build output.
 
-`--list` and `--help` run in the current terminal. Starting the bridge triggers
-a UAC prompt and relaunches PIDAL elevated, because HIDMaestro creates the virtual
-HID device.
+The CLI's `--list` and `--help` run in the current terminal. Starting the bridge
+triggers a UAC prompt and relaunches PIDAL elevated. The GUI requires
+administrator elevation on launch.
+
+## GUI
+
+Launch `Pidal.Gui.exe` (elevated). The GUI provides:
+
+- physical wheel selection and refresh
+- start/stop bridge with live status
+- direct force test slider, independent of the browser
+- live steering/throttle/brake/clutch/button/hat display
+- gain, invert, watchdog, poll rate, PID usage order, and verbose logging
+- log pane and tray icon
+
+The CLI remains available for diagnostics and headless use.
 
 ## Run
 
@@ -148,5 +167,6 @@ src/Pidal.Core/     PID parser, effect state, backend and virtual-wheel contract
 src/Pidal.DirectInput/  Vortice.DirectInput backend
 src/Pidal.Virtual/  HIDMaestro virtual PID wheel
 src/Pidal.App/      console host, CLI, manifest
-tests/              PID parser tests
+src/Pidal.Gui/      WinForms GUI, tray icon, manifest
+tests/              PID parser and bridge tests
 ```

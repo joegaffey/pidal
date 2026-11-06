@@ -3,6 +3,7 @@
     <Project Path="src/Pidal.App/Pidal.App.csproj" />
     <Project Path="src/Pidal.Core/Pidal.Core.csproj" />
     <Project Path="src/Pidal.DirectInput/Pidal.DirectInput.csproj" />
+    <Project Path="src/Pidal.Gui/Pidal.Gui.csproj" />
     <Project Path="src/Pidal.Virtual/Pidal.Virtual.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>Pidal.Gui</RootNamespace>
+    <AssemblyName>Pidal.Gui</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pidal.Core\Pidal.Core.csproj" />
+    <ProjectReference Include="..\Pidal.DirectInput\Pidal.DirectInput.csproj" />
+    <ProjectReference Include="..\Pidal.Virtual\Pidal.Virtual.csproj" />
+  </ItemGroup>
+</Project>

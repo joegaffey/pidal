@@ -12,4 +12,10 @@ public sealed record BridgeOptions
     public int WatchdogMs { get; init; } = 5000;
 
     public int WatchdogCheckMs { get; init; } = 250;
+
+    /// <summary>
+    /// PID usage-array order. Auto detects the reversed order used by current
+    /// webhid-wheel builds; Standard and Reversed force a mode.
+    /// </summary>
+    public PidUsageOrder PidUsageOrder { get; init; } = PidUsageOrder.Auto;
 }

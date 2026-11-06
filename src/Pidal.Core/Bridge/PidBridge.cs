@@ -46,6 +46,18 @@ public sealed class PidBridge : IDisposable
         _log = log;
     }
 
+    public event EventHandler<WheelInputFrame>? InputFrame;
+
+    public event EventHandler<BridgeStatus>? StatusChanged;
+
+    public bool IsRunning => _running;
+
+    public string BackendName => _backend.Name;
+
+    public string VirtualWheelName => _virtualWheel.ProductName;
+
+    public BridgeStatus Status => SnapshotStatus();
+
     public void Start()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -64,6 +76,13 @@ public sealed class PidBridge : IDisposable
 
         _backend.Open();
         _virtualWheel.Start();
+
+        _reversePidUsageOrder = _options.PidUsageOrder switch
+        {
+            PidUsageOrder.Reversed => true,
+            PidUsageOrder.Standard => false,
+            _ => false,
+        };
 
         Interlocked.Exchange(ref _lastOutputTimestamp, Stopwatch.GetTimestamp());
         _running = true;
@@ -146,6 +165,7 @@ public sealed class PidBridge : IDisposable
             }
         }
 
+        PublishStatus();
         _log.Info("Bridge stopped.");
     }
 
@@ -190,6 +210,7 @@ public sealed class PidBridge : IDisposable
                 if (frame is { } value)
                 {
                     _virtualWheel.SubmitInput(value);
+                    InputFrame?.Invoke(this, value);
                 }
             }
             catch (Exception ex)
@@ -435,7 +456,9 @@ public sealed class PidBridge : IDisposable
 
     private void DetectReversedUsageOrder(PidDeviceControl control)
     {
-        if (_reversePidUsageOrder || _controlCount >= _controlSequence.Length)
+        if (_options.PidUsageOrder != PidUsageOrder.Auto
+            || _reversePidUsageOrder
+            || _controlCount >= _controlSequence.Length)
         {
             return;
         }
@@ -544,6 +567,49 @@ public sealed class PidBridge : IDisposable
         return Math.Clamp(scaled, -10000, 10000);
     }
 
+    public void ApplyTestForce(int magnitude)
+    {
+        lock (_gate)
+        {
+            _backend.StartConstantForce(magnitude);
+        }
+
+        PublishStatus();
+    }
+
+    public void StopTestForce()
+    {
+        lock (_gate)
+        {
+            _backend.StopConstantForce();
+        }
+
+        PublishStatus();
+    }
+
+    private void PublishStatus()
+    {
+        StatusChanged?.Invoke(this, SnapshotStatus());
+    }
+
+    private BridgeStatus SnapshotStatus()
+    {
+        lock (_gate)
+        {
+            var active = _effects.Active;
+            return new BridgeStatus(
+                Running: _running,
+                BackendConnected: _backend.IsOpen,
+                BackendName: _backend.Name,
+                VirtualWheelName: _virtualWheel.ProductName,
+                ActiveEffectBlock: _effects.ActiveIndex,
+                EffectPlaying: active?.IsPlaying ?? false,
+                ActuatorsEnabled: _actuatorsEnabled,
+                Paused: _paused,
+                ReverseUsageOrder: _reversePidUsageOrder);
+        }
+    }
+
     private void PublishState()
     {
         var active = _effects.Active;
@@ -555,5 +621,6 @@ public sealed class PidBridge : IDisposable
             SafetySwitch: false);
 
         _virtualWheel.PublishPidState(state);
+        PublishStatus();
     }
 }

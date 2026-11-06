@@ -40,6 +40,51 @@ internal static class Program
             }
         }
 
+        if (options.Diagnose)
+        {
+            try
+            {
+                PrintDiagnostics();
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Could not diagnose DirectInput devices: {ex.Message}");
+                return 1;
+            }
+        }
+
+        var backendOptions = new DirectInputOptions
+        {
+            DeviceName = options.DeviceName,
+            DeviceGuid = options.DeviceGuid,
+            AxisOffset = options.AxisOffset,
+            InvertForce = options.Invert,
+            Gain = (int)Math.Round(options.GainPercent / 100.0 * 10000.0),
+        };
+
+        if (options.TestForce is { } testForce)
+        {
+            try
+            {
+                using var testBackend = new DirectInputBackend(backendOptions);
+                testBackend.Open();
+                Console.WriteLine(
+                    $"Applying constant force {testForce} for {options.TestForceMs} ms...");
+                testBackend.StartConstantForce(testForce);
+                Thread.Sleep(options.TestForceMs);
+                testBackend.StopConstantForce();
+                testBackend.Close();
+                Console.WriteLine("Force test complete.");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Force test failed: {ex.Message}");
+                return 1;
+            }
+        }
+
         if (!Elevation.IsAdministrator())
         {
             Console.WriteLine("Administrator elevation is required to create the virtual HID device.");
@@ -60,15 +105,6 @@ internal static class Program
         {
             eventArgs.Cancel = true;
             stop.Set();
-        };
-
-        var backendOptions = new DirectInputOptions
-        {
-            DeviceName = options.DeviceName,
-            DeviceGuid = options.DeviceGuid,
-            AxisOffset = options.AxisOffset,
-            InvertForce = options.Invert,
-            Gain = (int)Math.Round(options.GainPercent / 100.0 * 10000.0),
         };
 
         var bridgeOptions = new BridgeOptions
@@ -104,6 +140,45 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    private static void PrintDiagnostics()
+    {
+        var devices = DirectInputBackend.Diagnose();
+        if (devices.Count == 0)
+        {
+            Console.WriteLine("No DirectInput devices found.");
+            return;
+        }
+
+        foreach (var device in devices)
+        {
+            Console.WriteLine(
+                $"{device.ProductName} ({device.InstanceName}) " +
+                $"guid={device.InstanceGuid} type={device.Type} " +
+                $"ffb={(device.ForceFeedback ? "yes" : "no")} " +
+                $"virtual={(device.IsVirtual ? "yes" : "no")}");
+
+            if (device.Error is not null)
+            {
+                Console.WriteLine($"  error: {device.Error}");
+            }
+
+            foreach (var axis in device.Axes)
+            {
+                Console.WriteLine(
+                    $"  axis name='{axis.Name}' type={axis.ObjectType} " +
+                    $"usage={axis.UsagePage:X2}:{axis.Usage:X2} offset={axis.Offset} " +
+                    $"objectId=0x{axis.ObjectId:X8} flags={axis.ObjectIdFlags} " +
+                    $"ffbActuator={(axis.ForceFeedbackActuator ? "yes" : "no")}");
+            }
+
+            foreach (var effect in device.Effects)
+            {
+                Console.WriteLine(
+                    $"  effect name='{effect.Name}' type={effect.Type} guid={effect.Guid}");
+            }
+        }
     }
 
     private static void PrintDevices()

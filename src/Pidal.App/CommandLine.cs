@@ -6,6 +6,12 @@ internal sealed record AppOptions
 
     public bool ListDevices { get; init; }
 
+    public bool Diagnose { get; init; }
+
+    public int? TestForce { get; init; }
+
+    public int TestForceMs { get; init; } = 2000;
+
     public string? DeviceName { get; init; }
 
     public Guid? DeviceGuid { get; init; }
@@ -41,6 +47,30 @@ internal static class CommandLine
 
                 case "--list":
                     options = options with { ListDevices = true };
+                    break;
+
+                case "--diagnose":
+                    options = options with { Diagnose = true };
+                    break;
+
+                case "--test-force":
+                    var testForce = ParseInt(Next(args, ref i, arg), arg);
+                    if (testForce is < -10000 or > 10000)
+                    {
+                        throw new ArgumentException("--test-force must be between -10000 and 10000.");
+                    }
+
+                    options = options with { TestForce = testForce };
+                    break;
+
+                case "--test-force-ms":
+                    var testForceMs = ParseInt(Next(args, ref i, arg), arg);
+                    if (testForceMs < 0)
+                    {
+                        throw new ArgumentException("--test-force-ms cannot be negative.");
+                    }
+
+                    options = options with { TestForceMs = testForceMs };
                     break;
 
                 case "--device":
@@ -118,6 +148,9 @@ internal static class CommandLine
 
             Options:
               --list                 List DirectInput devices and exit.
+              --diagnose             Dump axes, FFB actuators and effects, then exit.
+              --test-force <value>   Apply a constant force directly and exit.
+              --test-force-ms <ms>   Duration for --test-force (default: 2000).
               --device <name>        Select a device by product/instance name fragment.
               --guid <guid>          Select a device by DirectInput instance GUID.
               --axis <offset>        Steering axis data-format offset (default: X).

@@ -85,6 +85,12 @@ Pidal.App.exe --device "G920"
 
 # Start with a specific steering axis offset and inverted force
 Pidal.App.exe --device "G920" --axis 0 --invert
+
+# Dump axes, FFB actuators and effects (no virtual wheel needed)
+Pidal.App.exe --diagnose
+
+# Test the physical DirectInput path directly, bypassing the virtual wheel
+Pidal.App.exe --device "G920" --test-force 3000 --test-force-ms 2000
 ```
 
 Open any WebHID PID client in Chrome/Edge, click **Add device**, and select

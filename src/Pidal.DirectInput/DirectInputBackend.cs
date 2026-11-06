@@ -68,6 +68,64 @@ public sealed class DirectInputBackend : IFfbBackend
         return result;
     }
 
+    public static IReadOnlyList<DirectInputDeviceDiagnostics> Diagnose()
+    {
+        using var directInput = DInput.DirectInput8Create();
+        var result = new List<DirectInputDeviceDiagnostics>();
+
+        foreach (var instance in EnumerateCandidates(directInput))
+        {
+            var axes = new List<DirectInputAxisDiagnostics>();
+            var effects = new List<DirectInputEffectDiagnostics>();
+            string? error = null;
+            var forceFeedback = false;
+
+            try
+            {
+                using var device = directInput.CreateDevice(instance.InstanceGuid);
+                forceFeedback = device.Capabilities.Flags.HasFlag(DeviceFlags.ForceFeedback);
+
+                foreach (var obj in device.GetObjects())
+                {
+                    axes.Add(new DirectInputAxisDiagnostics(
+                        Name: obj.Name ?? string.Empty,
+                        ObjectType: obj.ObjectType.ToString(),
+                        UsagePage: obj.UsagePage,
+                        Usage: obj.Usage,
+                        Offset: obj.Offset,
+                        ObjectId: (int)obj.ObjectId,
+                        ObjectIdFlags: obj.ObjectId.Flags.ToString(),
+                        ForceFeedbackActuator: obj.ObjectId.Flags.HasFlag(DeviceObjectTypeFlags.ForceFeedbackActuator)));
+                }
+
+                foreach (var effect in device.GetEffects())
+                {
+                    effects.Add(new DirectInputEffectDiagnostics(
+                        Name: effect.Name ?? string.Empty,
+                        Type: effect.Type.ToString(),
+                        Guid: effect.Guid));
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+            }
+
+            result.Add(new DirectInputDeviceDiagnostics(
+                InstanceGuid: instance.InstanceGuid,
+                InstanceName: instance.InstanceName,
+                ProductName: instance.ProductName,
+                Type: instance.Type.ToString(),
+                ForceFeedback: forceFeedback,
+                IsVirtual: IsVirtualDevice(instance),
+                Error: error,
+                Axes: axes,
+                Effects: effects));
+        }
+
+        return result;
+    }
+
     public void Open()
     {
         lock (_gate)

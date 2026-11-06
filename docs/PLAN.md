@@ -86,6 +86,7 @@ Acceptance on Windows:
 | Constant force | Windows + wheel | Manual |
 | WebHID visibility | Windows + Chrome/Edge | Manual |
 | End-to-end FFB | Windows + wheel + WebHID client | Manual |
+| GUI and bridge launch | Windows 11 | Verified |
 | PadForge coexistence | Windows + PadForge | Manual |
 | Driver install/uninstall | Windows | Manual |
 

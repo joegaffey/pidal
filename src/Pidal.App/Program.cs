@@ -124,7 +124,7 @@ internal static class Program
             bridge.Start();
             Console.WriteLine();
             Console.WriteLine("PIDAL is running.");
-            Console.WriteLine("  Browser: select 'PIDAL Virtual Wheel' in the WebHID device picker.");
+            Console.WriteLine("  Client:  select 'PIDAL Virtual Wheel' in your HID PID client.");
             Console.WriteLine("  Stop:    press Ctrl+C.");
             Console.WriteLine();
             stop.Wait();

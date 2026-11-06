@@ -1,12 +1,12 @@
 # PIDAL — PID Abstraction Layer
 
 PIDAL is a Windows **PID abstraction layer**. It presents a standard USB HID PID
-1.0 force-feedback wheel to any WebHID-capable application and drives a physical
-wheel through **DirectInput**. It exists for wheels that do not expose a usable
-standard PID interface.
+1.0 force-feedback device to HID clients and drives a physical wheel through
+**DirectInput**. It exists for wheels that do not expose a usable standard PID
+interface.
 
 ```text
-WebHID-capable app (e.g. webhid-wheel)
+HID PID client
         │  standard HID PID 1.0 output/feature reports
         ▼
 PIDAL virtual wheel (HIDMaestro, UMDF2)
@@ -24,16 +24,21 @@ Early implementation with a working CLI and WinForms GUI. The repository contain
 the architecture, protocol mapping, the DirectInput backend, the HIDMaestro
 virtual PID wheel, and the GUI shell. It is Windows-only; the bridge requires
 administrator elevation because HIDMaestro creates virtual devices and installs
-its UMDF2 driver. Hardware validation is still in progress.
+its UMDF2 driver. GUI and bridge are verified on Windows 11.
 
-## Consumers
+## Usage scenarios
 
-PIDAL exposes a standard PID device, so any WebHID PID client can use it.
-[`webhid-wheel`](../webhid-wheel) is the reference consumer used during
-development; PIDAL does not depend on it.
+- **HID/WebHID client:** PIDAL exposes a standard PID device. Browser apps using
+  WebHID (for example [`webhid-wheel`](../webhid-wheel)) are one way to drive it.
+  PIDAL does not depend on any particular client.
+- **Direct force testing:** the CLI and GUI test the physical DirectInput path
+  without a client.
 
-PIDAL does not add a network protocol. The client talks to the virtual wheel
-through WebHID exactly as it would to a real PID wheel.
+## Implementation note
+
+Chromium's HID parser exposes PID usage arrays in reverse declaration order.
+PIDAL compensates for clients that rely on that order, including current
+`webhid-wheel` builds. See [SPEC.md §7.1](docs/SPEC.md#71-reversed-usage-array-compatibility).
 
 ## Requirements
 
@@ -41,7 +46,6 @@ through WebHID exactly as it would to a real PID wheel.
 - .NET 10 SDK
 - HIDMaestro SDK (not published on NuGet; clone or vendor the SDK)
 - A physical wheel that exposes a DirectInput constant-force effect
-- Chromium-based browser for WebHID
 - Administrator elevation when starting the bridge (PIDAL relaunches itself;
   `--list` and `--help` run unelevated)
 
@@ -86,7 +90,7 @@ Launch `Pidal.Gui.exe` (elevated). The GUI provides:
 
 - physical wheel selection and refresh
 - start/stop bridge with live status
-- direct force test slider, independent of the browser
+- direct force test slider, independent of any HID client
 - live steering/throttle/brake/clutch/button/hat display
 - gain, invert, watchdog, poll rate, PID usage order, and verbose logging
 - log pane and tray icon
@@ -112,9 +116,8 @@ Pidal.App.exe --diagnose
 Pidal.App.exe --device "G920" --test-force 3000 --test-force-ms 2000
 ```
 
-Open any WebHID PID client in Chrome/Edge, click **Add device**, and select
-**PIDAL Virtual Wheel**. It appears as a standard PID device with constant force
-support. The `webhid-wheel` demo is a convenient reference client.
+Start your HID PID client and select **PIDAL Virtual Wheel**. It appears as a
+standard PID device with constant force support.
 
 ## Windows smoke test
 
@@ -123,24 +126,15 @@ support. The `webhid-wheel` demo is a convenient reference client.
    acquisition error and creates the virtual wheel.
 3. In another terminal, `Pidal.App.exe --list` now also shows
    `PIDAL Virtual Wheel` with `VIRTUAL yes`.
-4. In Chrome/Edge, open a WebHID PID client (for example the `webhid-wheel`
-   demo), choose **PIDAL Virtual Wheel**, and confirm it reports constant force
-   support.
+4. Open a HID PID client (for example a WebHID app), choose
+   **PIDAL Virtual Wheel**, and confirm it reports constant force support.
 5. Apply a low force. The physical wheel should move; **Stop** should release it.
 6. Start PadForge and repeat. Both virtual devices should remain visible; only
    one process can own the physical wheel.
 
-If the browser sees the virtual wheel but force does not reach the physical
-wheel, test the DirectInput path first with a known constant-force harness or
-PadForge's own force test.
-
-## Client compatibility
-
-Chromium exposes PID usage arrays in reverse declaration order, and the current
-`webhid-wheel` generic PID client maps Start/Stop from that order. PIDAL detects
-the resulting init signature and swaps Start/Stop and the affected Device
-Control values automatically. See
-[SPEC.md §7.1](docs/SPEC.md#71-reversed-usage-array-compatibility).
+If the client sees the virtual wheel but force does not reach the physical wheel,
+test the DirectInput path first with `--test-force` or the GUI's direct force
+test.
 
 ## Safety
 

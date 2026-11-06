@@ -209,7 +209,7 @@ public sealed class MainForm : Form
 
         var note = new Label
         {
-            Text = "Tests the physical DirectInput path directly, bypassing the browser.",
+            Text = "Tests the physical DirectInput path directly.",
             AutoSize = true,
             ForeColor = SystemColors.GrayText,
         };

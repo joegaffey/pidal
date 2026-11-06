@@ -334,20 +334,86 @@ public sealed class DirectInputBackend : IFfbBackend
                 $"'{device.DeviceInfo.ProductName}' does not expose a DirectInput constant-force effect.");
         }
 
+        Exception? objectIdError = null;
+        var actuatorIds = FindForceFeedbackActuatorIds(device);
+        if (actuatorIds.Length > 0)
+        {
+            try
+            {
+                _effect = CreateEffectCore(
+                    device,
+                    effectInfo.Guid,
+                    EffectFlags.ObjectIds,
+                    actuatorIds);
+                return;
+            }
+            catch (Exception ex)
+            {
+                objectIdError = ex;
+            }
+        }
+
+        try
+        {
+            _effect = CreateEffectCore(
+                device,
+                effectInfo.Guid,
+                EffectFlags.ObjectOffsets,
+                new[] { _steeringAxisOffset });
+        }
+        catch (Exception offsetError)
+        {
+            var detail = objectIdError is null
+                ? offsetError.Message
+                : $"{objectIdError.Message} / {offsetError.Message}";
+
+            throw new InvalidOperationException(
+                $"CreateEffect failed for '{device.DeviceInfo.ProductName}' " +
+                $"(steering offset {_steeringAxisOffset}, actuators {actuatorIds.Length}): {detail}",
+                objectIdError is null ? offsetError : new AggregateException(objectIdError, offsetError));
+        }
+    }
+
+    private IDirectInputEffect CreateEffectCore(
+        IDirectInputDevice8 device,
+        Guid effectGuid,
+        EffectFlags axisFlags,
+        int[] axes)
+    {
         var parameters = new EffectParameters
         {
-            Flags = EffectFlags.Cartesian | EffectFlags.ObjectOffsets,
-            Duration = -1,
+            Flags = EffectFlags.Cartesian | axisFlags,
+            Duration = int.MaxValue,
             SamplePeriod = 0,
             Gain = _deviceGain,
             TriggerButton = -1,
-            TriggerRepeatInterval = 0,
-            Axes = new[] { _steeringAxisOffset },
-            Directions = new[] { 0 },
+            TriggerRepeatInterval = int.MaxValue,
+            Axes = axes,
+            Directions = new int[axes.Length],
             Parameters = new ConstantForce { Magnitude = 0 },
         };
 
-        _effect = device.CreateEffect(effectInfo.Guid, parameters);
+        return device.CreateEffect(effectGuid, parameters);
+    }
+
+    private static int[] FindForceFeedbackActuatorIds(IDirectInputDevice8 device)
+    {
+        var actuators = device
+            .GetObjects()
+            .Where(obj => obj.ObjectId.Flags.HasFlag(DeviceObjectTypeFlags.ForceFeedbackActuator))
+            .ToList();
+
+        if (actuators.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        return actuators
+            .OrderByDescending(obj =>
+                obj.ObjectType == ObjectGuid.XAxis
+                || (obj.UsagePage == 0x01 && obj.Usage == 0x30))
+            .Select(obj => (int)obj.ObjectId)
+            .ToArray();
     }
 
     private void SetMagnitudeCore(int magnitude)

@@ -242,15 +242,22 @@ may appear in the same enumeration.
 ### 6.3 Effect
 
 - Find an `EffectInfo` with `Type == EffectType.ConstantForce`.
+- Prefer the device's force-feedback actuator object IDs: enumerate
+  `GetObjects()`, keep objects whose `ObjectId.Flags` includes
+  `DeviceObjectTypeFlags.ForceFeedbackActuator`, and pass those IDs with
+  `EffectFlags.ObjectIds`. Steering-axis actuators are ordered first.
+- If the device exposes no actuator objects, or object-ID creation fails, fall
+  back to `EffectFlags.ObjectOffsets` with the steering axis offset (default X,
+  offset 0).
 - Create one effect with:
-  - `Flags = EffectFlags.Cartesian | EffectFlags.ObjectOffsets`
-  - `Duration = -1` (infinite)
+  - `Flags = EffectFlags.Cartesian | ObjectIds` (or `ObjectOffsets`)
+  - `Duration = int.MaxValue`
   - `SamplePeriod = 0`
   - `Gain = 10000`
   - `TriggerButton = -1`
-  - `TriggerRepeatInterval = 0`
-  - `Axes = [steeringAxisOffset]` (default X, offset 0)
-  - `Directions = [0]`
+  - `TriggerRepeatInterval = int.MaxValue`
+  - `Axes = actuatorIds` (or `[steeringAxisOffset]`)
+  - `Directions = zeroed array matching Axes`
   - `Parameters = new ConstantForce { Magnitude = 0 }`
 - Update magnitude with
   `EffectParameterFlags.TypeSpecificParameters`.

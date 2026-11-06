@@ -41,6 +41,8 @@ through WebHID exactly as it would to a real PID wheel.
 - HIDMaestro SDK (not published on NuGet; clone or vendor the SDK)
 - A physical wheel that exposes a DirectInput constant-force effect
 - Chromium-based browser for WebHID
+- Administrator elevation when starting the bridge (PIDAL relaunches itself;
+  `--list` and `--help` run unelevated)
 
 ## Build
 
@@ -68,7 +70,9 @@ dotnet build src\Pidal.App\Pidal.App.csproj -p:HIDMaestroCoreDll=C:\src\HIDMaest
 The published single-file executable is `dist\win-x64\Pidal.App.exe`.
 `src\Pidal.App\bin` is only the intermediate build output.
 
-The app is `requireAdministrator`; Windows prompts for elevation on launch.
+`--list` and `--help` run in the current terminal. Starting the bridge triggers
+a UAC prompt and relaunches PIDAL elevated, because HIDMaestro creates the virtual
+HID device.
 
 ## Run
 

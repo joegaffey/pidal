@@ -40,6 +40,20 @@ internal static class Program
             }
         }
 
+        if (!Elevation.IsAdministrator())
+        {
+            Console.WriteLine("Administrator elevation is required to create the virtual HID device.");
+            Console.WriteLine("Relaunching elevated...");
+
+            if (Elevation.TryRelaunchElevated(args))
+            {
+                return 0;
+            }
+
+            Console.Error.WriteLine("Elevation was cancelled. Run PIDAL from an elevated terminal.");
+            return 1;
+        }
+
         var log = new ConsoleLog(options.Verbose);
         using var stop = new ManualResetEventSlim(false);
         Console.CancelKeyPress += (_, eventArgs) =>

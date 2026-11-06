@@ -62,7 +62,7 @@ Acceptance on Windows:
 ## Milestone 4 — Packaging
 
 - [x] Single-file, self-contained publish settings.
-- [x] `requireAdministrator` manifest.
+- [x] `asInvoker` manifest with bridge-start self-elevation.
 - [ ] Signed release binary.
 - [ ] Versioned release notes.
 - [ ] Verify HIDMaestro driver install/uninstall policy in the release.

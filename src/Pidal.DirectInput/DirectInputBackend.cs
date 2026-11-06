@@ -18,6 +18,7 @@ public sealed class DirectInputBackend : IFfbBackend
     private IDirectInput8? _directInput;
     private IDirectInputDevice8? _device;
     private IDirectInputEffect? _effect;
+    private HiddenWindow? _hiddenWindow;
     private IntPtr _window;
     private int _steeringAxisOffset;
     private int _deviceGain = 10000;
@@ -73,13 +74,8 @@ public sealed class DirectInputBackend : IFfbBackend
         {
             ObjectDisposedException.ThrowIf(_open, this);
 
-            _window = NativeMethods.GetConsoleWindow();
-            if (_window == IntPtr.Zero)
-            {
-                throw new InvalidOperationException(
-                    "No window handle is available for DirectInput. Run PIDAL as a console app.");
-            }
-
+            _hiddenWindow = HiddenWindow.Create();
+            _window = _hiddenWindow.Handle;
             _timerResolutionRaised = NativeMethods.timeBeginPeriod(1) == 0;
             _directInput = DInput.DirectInput8Create();
 
@@ -106,7 +102,8 @@ public sealed class DirectInputBackend : IFfbBackend
     {
         lock (_gate)
         {
-            if (!_open && _device is null && _directInput is null && !_timerResolutionRaised)
+            if (!_open && _device is null && _directInput is null
+                && _hiddenWindow is null && !_timerResolutionRaised)
             {
                 return;
             }
@@ -152,6 +149,10 @@ public sealed class DirectInputBackend : IFfbBackend
 
             _directInput?.Dispose();
             _directInput = null;
+
+            _hiddenWindow?.Dispose();
+            _hiddenWindow = null;
+            _window = IntPtr.Zero;
             _open = false;
 
             if (_timerResolutionRaised)
@@ -599,9 +600,6 @@ public sealed class DirectInputBackend : IFfbBackend
 
 internal static class NativeMethods
 {
-    [DllImport("kernel32.dll")]
-    internal static extern IntPtr GetConsoleWindow();
-
     [DllImport("winmm.dll")]
     internal static extern uint timeBeginPeriod(uint period);
 

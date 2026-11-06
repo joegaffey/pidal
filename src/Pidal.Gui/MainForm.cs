@@ -381,7 +381,7 @@ public sealed class MainForm : Form
 
     private async Task RefreshDevicesAsync()
     {
-        if (_bridge is not null || _starting)
+        if (_closing || _bridge is not null || _starting)
         {
             return;
         }
@@ -429,7 +429,7 @@ public sealed class MainForm : Form
 
     private async Task StartBridgeAsync()
     {
-        if (_bridge is not null || _starting)
+        if (_closing || _bridge is not null || _starting)
         {
             return;
         }
@@ -472,6 +472,12 @@ public sealed class MainForm : Form
             bridge.StatusChanged += OnStatusChanged;
 
             await Task.Run(bridge.Start);
+
+            if (_closing)
+            {
+                bridge.Dispose();
+                return;
+            }
 
             _backend = backend;
             _virtualWheel = virtualWheel;
@@ -547,7 +553,15 @@ public sealed class MainForm : Form
 
         if (InvokeRequired)
         {
-            BeginInvoke(new Action(() => OnStatusChanged(sender, status)));
+            try
+            {
+                BeginInvoke(new Action(() => OnStatusChanged(sender, status)));
+            }
+            catch (InvalidOperationException)
+            {
+                // The form is closing.
+            }
+
             return;
         }
 

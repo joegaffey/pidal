@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Pidal.Core.Abstractions;
 using Pidal.Core.Diagnostics;
@@ -17,9 +18,11 @@ public sealed class PidBridge : IDisposable
     private readonly IPidalLog _log;
     private readonly PidEffectState _effects = new();
     private readonly object _gate = new();
+    private readonly BlockingCollection<Action> _backendQueue = new(new ConcurrentQueue<Action>());
 
     private Timer? _watchdog;
     private Thread? _inputThread;
+    private Thread? _outputThread;
     private volatile bool _running;
     private long _lastOutputTimestamp;
     private bool _actuatorsEnabled = true;
@@ -69,6 +72,13 @@ public sealed class PidBridge : IDisposable
         };
         _inputThread.Start();
 
+        _outputThread = new Thread(OutputLoop)
+        {
+            IsBackground = true,
+            Name = "PIDAL output apply",
+        };
+        _outputThread.Start();
+
         if (_options.WatchdogMs > 0)
         {
             var period = Math.Max(50, _options.WatchdogCheckMs);
@@ -95,6 +105,10 @@ public sealed class PidBridge : IDisposable
 
         _inputThread?.Join(TimeSpan.FromSeconds(2));
         _inputThread = null;
+
+        _backendQueue.CompleteAdding();
+        _outputThread?.Join(TimeSpan.FromSeconds(10));
+        _outputThread = null;
 
         _virtualWheel.OutputReceived -= OnOutputReceived;
         _backend.Disconnected -= OnBackendDisconnected;
@@ -145,6 +159,21 @@ public sealed class PidBridge : IDisposable
         _backend.Dispose();
     }
 
+    private void OutputLoop()
+    {
+        foreach (var action in _backendQueue.GetConsumingEnumerable())
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                _log.Error("PID command failed.", ex);
+            }
+        }
+    }
+
     private void InputLoop()
     {
         var hz = Math.Max(1, _options.InputPollHz);
@@ -177,6 +206,9 @@ public sealed class PidBridge : IDisposable
         }
 
         Interlocked.Exchange(ref _lastOutputTimestamp, Stopwatch.GetTimestamp());
+        _log.Debug(
+            $"PID report 0x{packet.ReportId:X2} source={packet.Source} " +
+            $"len={packet.Data.Length}.");
 
         PidCommand command;
         try
@@ -191,14 +223,17 @@ public sealed class PidBridge : IDisposable
 
         try
         {
-            lock (_gate)
+            _backendQueue.Add(() =>
             {
-                Apply(command);
-            }
+                lock (_gate)
+                {
+                    Apply(command);
+                }
+            });
         }
-        catch (Exception ex)
+        catch (InvalidOperationException)
         {
-            _log.Error($"PID command {command.GetType().Name} failed.", ex);
+            // The bridge is stopping.
         }
     }
 

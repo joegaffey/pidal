@@ -21,15 +21,16 @@ public class PidBridgeTests
         wheel.Emit(SetConstantForce(1, 5000));
         wheel.Emit(EffectOperation(1, PidEffectOperation.Start));
 
-        Assert.Equal(new[] { 5000 }, backend.Starts);
-        Assert.Contains(wheel.States, state => state.EffectPlaying && state.EffectBlockIndex == 1);
+        WaitUntil(() => backend.Starts.Count > 0);
+        Assert.Equal(new[] { 5000 }, backend.Starts.ToArray());
+        WaitUntil(() => wheel.States.Any(state => state.EffectPlaying && state.EffectBlockIndex == 1));
 
         wheel.Emit(SetConstantForce(1, -2000));
-        Assert.Contains(-2000, backend.Updates);
+        WaitUntil(() => backend.Updates.Contains(-2000));
 
         wheel.Emit(EffectOperation(1, PidEffectOperation.Stop));
-        Assert.True(backend.StopCount > 0);
-        Assert.Contains(wheel.States, state => !state.EffectPlaying);
+        WaitUntil(() => backend.StopCount > 0);
+        WaitUntil(() => wheel.States.Any(state => !state.EffectPlaying));
     }
 
     [Fact]
@@ -43,7 +44,8 @@ public class PidBridgeTests
         wheel.Emit(SetConstantForce(1, 3200));
         wheel.Emit(EffectOperation(1, PidEffectOperation.Start));
 
-        Assert.Equal(new[] { 3200 }, backend.Starts);
+        WaitUntil(() => backend.Starts.Count > 0);
+        Assert.Equal(new[] { 3200 }, backend.Starts.ToArray());
     }
 
     [Fact]
@@ -58,8 +60,9 @@ public class PidBridgeTests
         wheel.Emit(SetConstantForce(5, 1000));
         wheel.Emit(EffectOperation(5, PidEffectOperation.Start));
 
-        Assert.Equal(new[] { 1000 }, backend.Starts);
-        Assert.Contains(wheel.States, state => state.EffectBlockIndex == 5);
+        WaitUntil(() => backend.Starts.Count > 0);
+        Assert.Equal(new[] { 1000 }, backend.Starts.ToArray());
+        WaitUntil(() => wheel.States.Any(state => state.EffectBlockIndex == 5));
     }
 
     [Fact]
@@ -75,9 +78,9 @@ public class PidBridgeTests
         wheel.Emit(EffectOperation(1, PidEffectOperation.Start));
         wheel.Emit(DeviceControl(PidDeviceControl.Reset));
 
-        Assert.Contains(PidDeviceControl.Reset, backend.Controls);
-        Assert.True(backend.StopCount > 0);
-        Assert.Contains(wheel.States, state => !state.EffectPlaying);
+        WaitUntil(() => backend.Controls.Contains(PidDeviceControl.Reset));
+        WaitUntil(() => backend.StopCount > 0);
+        WaitUntil(() => wheel.States.Any(state => !state.EffectPlaying));
     }
 
     [Fact]
@@ -99,7 +102,7 @@ public class PidBridgeTests
         }
 
         Assert.True(backend.StopCount > 0);
-        Assert.Contains(wheel.States, state => !state.EffectPlaying);
+        WaitUntil(() => wheel.States.Any(state => !state.EffectPlaying));
     }
 
     [Fact]
@@ -120,6 +123,17 @@ public class PidBridgeTests
         }
 
         Assert.Contains(new WheelInputFrame(1000, 2000, 3000, 4000, 0b101, 3), wheel.InputFrames);
+    }
+
+    private static void WaitUntil(Func<bool> condition, int timeoutMs = 3000)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (!condition() && stopwatch.ElapsedMilliseconds < timeoutMs)
+        {
+            Thread.Sleep(10);
+        }
+
+        Assert.True(condition(), "Timed out waiting for condition.");
     }
 
     private static PidBridge CreateBridge(FakeBackend backend, FakeVirtualWheel wheel, int watchdogMs)
@@ -187,15 +201,19 @@ public class PidBridgeTests
 
         public event EventHandler<string>? Disconnected;
 
-        public List<int> Starts { get; } = new();
+        public ConcurrentQueue<int> Starts { get; } = new();
 
-        public List<int> Updates { get; } = new();
+        public ConcurrentQueue<int> Updates { get; } = new();
 
-        public List<PidDeviceControl> Controls { get; } = new();
+        public ConcurrentQueue<PidDeviceControl> Controls { get; } = new();
 
-        public int StopCount { get; private set; }
+        private int _stopCount;
 
-        public int Gain { get; private set; }
+        public int StopCount => Volatile.Read(ref _stopCount);
+
+        private int _gain;
+
+        public int Gain => Volatile.Read(ref _gain);
 
         public WheelInputFrame? NextInput { get; set; }
 
@@ -203,23 +221,23 @@ public class PidBridgeTests
 
         public void Close() => IsOpen = false;
 
-        public void StartConstantForce(int magnitude) => Starts.Add(magnitude);
+        public void StartConstantForce(int magnitude) => Starts.Enqueue(magnitude);
 
-        public void UpdateConstantForce(int magnitude) => Updates.Add(magnitude);
+        public void UpdateConstantForce(int magnitude) => Updates.Enqueue(magnitude);
 
-        public void StopConstantForce() => StopCount++;
+        public void StopConstantForce() => Interlocked.Increment(ref _stopCount);
 
-        public void SetDeviceGain(int gain) => Gain = gain;
+        public void SetDeviceGain(int gain) => Volatile.Write(ref _gain, gain);
 
         public void HandleDeviceControl(PidDeviceControl control)
         {
-            Controls.Add(control);
+            Controls.Enqueue(control);
             if (control is PidDeviceControl.DisableActuators
                 or PidDeviceControl.StopAllEffects
                 or PidDeviceControl.Reset
                 or PidDeviceControl.Pause)
             {
-                StopCount++;
+                Interlocked.Increment(ref _stopCount);
             }
         }
 

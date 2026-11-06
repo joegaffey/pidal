@@ -345,5 +345,5 @@ See [COEXISTENCE.md](COEXISTENCE.md). In short:
 - PID direction is ignored in the first release; use `--invert` if force pulls
   the wrong way.
 - Effect duration is not enforced; the watchdog is the safety mechanism.
-- The first release uses a console window handle for DirectInput. A hidden
-  message window is a later cleanup.
+- DirectInput uses a dedicated hidden top-level window. Physical hot-plug
+  re-enumeration is still manual.

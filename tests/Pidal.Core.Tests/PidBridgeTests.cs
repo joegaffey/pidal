@@ -84,6 +84,57 @@ public class PidBridgeTests
     }
 
     [Fact]
+    public void SwapsStartStopWhenClientUsesReversedUsageOrder()
+    {
+        var backend = new FakeBackend();
+        var wheel = new FakeVirtualWheel();
+        using var bridge = CreateBridge(backend, wheel, watchdogMs: 0);
+
+        bridge.Start();
+
+        // webhid-wheel's init arrives with usage-array indices reversed.
+        wheel.Emit(DeviceControl(PidDeviceControl.StopAllEffects));
+        wheel.Emit(DeviceControl(PidDeviceControl.Reset));
+        wheel.Emit(DeviceControl(PidDeviceControl.Continue));
+
+        // Its Apply sequence therefore sends operation 3, which means Start.
+        wheel.Emit(SetEffect(1));
+        wheel.Emit(SetConstantForce(1, 5000));
+        wheel.Emit(EffectOperation(1, PidEffectOperation.Stop));
+
+        WaitUntil(() => backend.Starts.Count > 0);
+        Assert.Equal(new[] { 5000 }, backend.Starts.ToArray());
+
+        // Its Stop button sends operation 1, which means Stop.
+        wheel.Emit(EffectOperation(1, PidEffectOperation.Start));
+        WaitUntil(() => backend.StopCount > 0);
+    }
+
+    [Fact]
+    public void KeepsStartStopWhenClientUsesStandardUsageOrder()
+    {
+        var backend = new FakeBackend();
+        var wheel = new FakeVirtualWheel();
+        using var bridge = CreateBridge(backend, wheel, watchdogMs: 0);
+
+        bridge.Start();
+
+        wheel.Emit(DeviceControl(PidDeviceControl.Reset));
+        wheel.Emit(DeviceControl(PidDeviceControl.StopAllEffects));
+        wheel.Emit(DeviceControl(PidDeviceControl.EnableActuators));
+
+        wheel.Emit(SetEffect(1));
+        wheel.Emit(SetConstantForce(1, 4000));
+        wheel.Emit(EffectOperation(1, PidEffectOperation.Start));
+
+        WaitUntil(() => backend.Starts.Count > 0);
+        Assert.Equal(new[] { 4000 }, backend.Starts.ToArray());
+
+        wheel.Emit(EffectOperation(1, PidEffectOperation.Stop));
+        WaitUntil(() => backend.StopCount > 0);
+    }
+
+    [Fact]
     public void WatchdogStopsStaleEffect()
     {
         var backend = new FakeBackend();

@@ -115,6 +115,14 @@ If the browser sees the virtual wheel but force does not reach the physical
 wheel, test the DirectInput path first with a known constant-force harness or
 PadForge's own force test.
 
+## Client compatibility
+
+Chromium exposes PID usage arrays in reverse declaration order, and the current
+`webhid-wheel` generic PID client maps Start/Stop from that order. PIDAL detects
+the resulting init signature and swaps Start/Stop and the affected Device
+Control values automatically. See
+[SPEC.md §7.1](docs/SPEC.md#71-reversed-usage-array-compatibility).
+
 ## Safety
 
 - Constant force is stopped on process exit, device control stop/disable/reset,

@@ -296,6 +296,22 @@ may appear in the same enumeration.
 Only one constant-force effect is rendered at a time. If a second EBI starts,
 the bridge switches the backend to that EBI and logs the switch.
 
+### 7.1 Reversed usage-array compatibility
+
+Chromium's HID parser exposes the PID Effect Operation and Device Control usage
+arrays in reverse declaration order. `webhid-wheel`'s generic PID client computes
+array values from that order, so its Start/Stop and Device Control values arrive
+swapped.
+
+PIDAL detects the signature init sequence (`StopAllEffects`, `Reset`,
+`Continue`) and, from then on, swaps:
+
+- Effect Operation: Start <-> Stop
+- Device Control: Enable <-> Continue, Disable <-> Pause, StopAll <-> Reset
+
+This keeps PIDAL usable with the current reference client. The proper fix is in
+the client: sort `field.uids` by usage page/id before computing `usageIndex`.
+
 ## 8. Safety
 
 - **Watchdog:** if an effect is playing and no PID output report has arrived for

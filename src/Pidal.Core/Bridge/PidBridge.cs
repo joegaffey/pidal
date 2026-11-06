@@ -30,6 +30,9 @@ public sealed class PidBridge : IDisposable
     private bool _started;
     private bool _stopped;
     private bool _disposed;
+    private readonly PidDeviceControl[] _controlSequence = new PidDeviceControl[3];
+    private int _controlCount;
+    private bool _reversePidUsageOrder;
 
     public PidBridge(
         IFfbBackend backend,
@@ -326,8 +329,12 @@ public sealed class PidBridge : IDisposable
 
     private void ApplyEffectOperation(PidEffectOperationCommand command)
     {
+        var operation = _reversePidUsageOrder
+            ? ReverseEffectOperation(command.Operation)
+            : command.Operation;
+
         var block = _effects.GetOrCreate(command.EffectBlockIndex);
-        if (command.Operation is PidEffectOperation.Start or PidEffectOperation.StartSolo)
+        if (operation is PidEffectOperation.Start or PidEffectOperation.StartSolo)
         {
             if (!block.IsConstantForce)
             {
@@ -373,9 +380,15 @@ public sealed class PidBridge : IDisposable
 
     private void ApplyDeviceControl(PidDeviceControlCommand command)
     {
-        _backend.HandleDeviceControl(command.Control);
+        DetectReversedUsageOrder(command.Control);
 
-        if (command.Control is PidDeviceControl.DisableActuators
+        var control = _reversePidUsageOrder
+            ? ReverseDeviceControl(command.Control)
+            : command.Control;
+
+        _backend.HandleDeviceControl(control);
+
+        if (control is PidDeviceControl.DisableActuators
             or PidDeviceControl.StopAllEffects
             or PidDeviceControl.Reset
             or PidDeviceControl.Pause)
@@ -383,7 +396,7 @@ public sealed class PidBridge : IDisposable
             _backend.StopConstantForce();
         }
 
-        switch (command.Control)
+        switch (control)
         {
             case PidDeviceControl.EnableActuators:
                 _actuatorsEnabled = true;
@@ -417,7 +430,52 @@ public sealed class PidBridge : IDisposable
         }
 
         PublishState();
-        _log.Debug($"Device control {command.Control}.");
+        _log.Debug($"Device control {control}.");
+    }
+
+    private void DetectReversedUsageOrder(PidDeviceControl control)
+    {
+        if (_reversePidUsageOrder || _controlCount >= _controlSequence.Length)
+        {
+            return;
+        }
+
+        _controlSequence[_controlCount++] = control;
+
+        if (_controlCount == _controlSequence.Length
+            && _controlSequence[0] == PidDeviceControl.StopAllEffects
+            && _controlSequence[1] == PidDeviceControl.Reset
+            && _controlSequence[2] == PidDeviceControl.Continue)
+        {
+            _reversePidUsageOrder = true;
+            _log.Warn(
+                "Detected reversed PID usage-array order (webhid-wheel); " +
+                "enabling Effect Operation and Device Control compatibility mapping.");
+        }
+    }
+
+    private static PidEffectOperation ReverseEffectOperation(PidEffectOperation operation)
+    {
+        return operation switch
+        {
+            PidEffectOperation.Start => PidEffectOperation.Stop,
+            PidEffectOperation.Stop => PidEffectOperation.Start,
+            _ => operation,
+        };
+    }
+
+    private static PidDeviceControl ReverseDeviceControl(PidDeviceControl control)
+    {
+        return control switch
+        {
+            PidDeviceControl.EnableActuators => PidDeviceControl.Continue,
+            PidDeviceControl.DisableActuators => PidDeviceControl.Pause,
+            PidDeviceControl.StopAllEffects => PidDeviceControl.Reset,
+            PidDeviceControl.Reset => PidDeviceControl.StopAllEffects,
+            PidDeviceControl.Pause => PidDeviceControl.DisableActuators,
+            PidDeviceControl.Continue => PidDeviceControl.EnableActuators,
+            _ => control,
+        };
     }
 
     private void ApplyCreateNewEffect()
